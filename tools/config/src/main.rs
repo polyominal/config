@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow, bail};
 use xshell::{Shell, cmd};
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
 fn get_home_dir(sh: &Shell) -> Result<PathBuf> {
     sh.var("HOME")
         .map(PathBuf::from)
-        .map_err(|e| anyhow::anyhow!("failed to get HOME directory from env: {e}"))
+        .map_err(|e| anyhow!("failed to get HOME directory from env: {e}"))
 }
 
 fn get_config_dir(sh: &Shell) -> Result<PathBuf> {
@@ -107,8 +107,8 @@ fn symlink(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn walkdir(path: &PathBuf) -> Result<Vec<PathBuf>> {
-    fn walk(dir: &PathBuf, files: &mut Vec<PathBuf>) -> Result<()> {
+fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
+    fn walk(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
         std::fs::read_dir(dir)
             .map_err(|e| anyhow!("failed to read directory {}: {e}", dir.display()))?
             .try_for_each(|entry| -> Result<()> {
