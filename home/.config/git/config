@@ -1,0 +1,17 @@
+[user]
+    name = polyominal
+    email = 79344013+polyominal@users.noreply.github.com
+[push]
+    default = "current"
+    autoSetupRemote = true
+[fetch]
+    prune = true
+[diff]
+    colormoved = "default"
+    colormovedws = "allow-indentation-change"
+[branch]
+    sort = "committerdate"
+[merge]
+    conflictstyle = "diff3"
+[advice]
+    detachedHead = false

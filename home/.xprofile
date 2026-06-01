@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+export TERMINAL=ghostty
+
+# https://wiki.archlinux.org/title/Firefox/Tweaks#Pixel-perfect_trackpad_scrolling
+export MOZ_USE_XINPUT2=1
+
+# https://wiki.archlinux.org/title/Fcitx5#Integration
+export GTK_IM_MODULE=fcitx5
+export QT_IM_MODULE=fcitx5
+export XMODIFIERS=@im=fcitx5
+
+[ -f ~/.xbindkeysrc ] && xbindkeys
