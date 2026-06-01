@@ -11,6 +11,8 @@
     colormovedws = "allow-indentation-change"
 [branch]
     sort = "committerdate"
+[core]
+    excludesFile = ~/.config/git/exclude
 [merge]
     conflictstyle = "diff3"
 [advice]
