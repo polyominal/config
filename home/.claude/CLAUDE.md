@@ -21,8 +21,10 @@ sufficient. **Do not write your accomplishments into this file.**
 - When adding dependencies to Rust projects, use `cargo add`.
 - After editing source files, ensure formatting and linting are correct
   by running `cargo fmt --all --check` and
-  `cargo clippy --all-targets --all-features -- -D warnings`, and fix
-  using `cargo` commands if there are issues.
+  `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+  and fix using `cargo` commands if there are issues. `--workspace` is
+  required for clippy to lint member crates beyond the workspace root
+  (for `cargo fmt`, `--all` is the correct equivalent flag).
 - In code that uses `eyre` or `anyhow` `Result`s, consistently use
   `.context()` prior to every error-propagation with `?`. Context
   messages in `.context` should be simple present tense, such as to
