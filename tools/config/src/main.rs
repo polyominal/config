@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use xshell::{Shell, cmd};
 
 const RED: &str = "\x1b[31m";
@@ -36,12 +36,16 @@ fn main() -> Result<()> {
         flags::ConfigCmd::Edit(edit) => {
             let editor = edit.editor.unwrap_or_else(|| "code".to_string());
             let config_dir = get_config_dir(&sh)?;
-            cmd!(sh, "{editor} {config_dir}").run()?;
+            cmd!(sh, "{editor} {config_dir}")
+                .run()
+                .with_context(|| format!("failed to open editor `{editor}`"))?;
         }
         flags::ConfigCmd::Bundle(bundle) => {
             let brewfile = get_config_dir(&sh)?.join("Brewfile");
             let cleanup_flag = bundle.cleanup.then_some("--cleanup");
-            cmd!(sh, "brew bundle --file={brewfile} {cleanup_flag...}").run()?;
+            cmd!(sh, "brew bundle --file={brewfile} {cleanup_flag...}")
+                .run()
+                .context("failed to run `brew bundle`")?;
         }
         flags::ConfigCmd::Setup(_) => symlink(&sh)?,
     }
@@ -74,23 +78,35 @@ fn symlink(sh: &Shell) -> Result<()> {
     }
 
     walkdir(&config_home)?.into_iter().try_for_each(|entry| {
-        let rel_path = entry.strip_prefix(&config_home).unwrap_or_else(|e| {
-            panic!(
-                "failed to determine relative path for {}: {e}",
-                entry.display()
-            )
-        });
+        let rel_path = entry
+            .strip_prefix(&config_home)
+            .expect("walkdir only yields entries under config home");
         let dest = home.join(rel_path);
 
         // create parent directory if needed
         if let Some(parent) = dest.parent() {
-            sh.create_dir(parent)?;
+            sh.create_dir(parent).with_context(|| {
+                format!("failed to create parent directory {}", parent.display())
+            })?;
         }
 
-        // remove existing file/symlink if exists
-        if dest.exists() {
-            eprintln!("{RED}removing existing {}{RESET}", rel_path.display());
-            sh.remove_path(&dest)?;
+        if dest.symlink_metadata().is_ok() {
+            if dest.is_symlink() {
+                // replace existing symlinks outright
+                eprintln!(
+                    "{RED}replacing existing symlink {}{RESET}",
+                    rel_path.display()
+                );
+                std::fs::remove_file(&dest).with_context(|| {
+                    format!("failed to remove existing symlink {}", dest.display())
+                })?;
+            } else {
+                // refuse to destroy real stuff
+                bail!(
+                    "{} exists and is not a symlink; refusing to remove it",
+                    dest.display()
+                );
+            }
         }
 
         // create symlink
@@ -112,9 +128,12 @@ fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
         std::fs::read_dir(dir)
             .map_err(|e| anyhow!("failed to read directory {}: {e}", dir.display()))?
             .try_for_each(|entry| -> Result<()> {
-                let entry = entry?;
+                let entry =
+                    entry.with_context(|| format!("failed to read entry in {}", dir.display()))?;
                 let path = entry.path();
-                let file_type = entry.file_type()?;
+                let file_type = entry
+                    .file_type()
+                    .with_context(|| format!("failed to read file type of {}", path.display()))?;
 
                 if file_type.is_symlink() {
                     // `file_type()` uses d_type from readdir(), which
@@ -124,6 +143,8 @@ fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
                         files.push(path);
                     } else if path.is_dir() {
                         walk(&path, files)?;
+                    } else {
+                        bail!("broken symlink in config home: {}", path.display());
                     }
                 } else if file_type.is_file() {
                     files.push(path);
