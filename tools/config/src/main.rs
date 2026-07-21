@@ -77,54 +77,54 @@ fn symlink(sh: &Shell) -> Result<()> {
         );
     }
 
-    walkdir(&config_home)?.into_iter().try_for_each(|entry| {
-        let rel_path = entry
-            .strip_prefix(&config_home)
-            .expect("walkdir only yields entries under config home");
-        let dest = home.join(rel_path);
+    walkdir(&config_home)?
+        .into_iter()
+        .try_for_each(|rel_path| {
+            let entry = config_home.join(&rel_path);
+            let dest = home.join(&rel_path);
 
-        // create parent directory if needed
-        if let Some(parent) = dest.parent() {
-            sh.create_dir(parent).with_context(|| {
-                format!("failed to create parent directory {}", parent.display())
-            })?;
-        }
-
-        if dest.symlink_metadata().is_ok() {
-            if dest.is_symlink() {
-                // replace existing symlinks outright
-                eprintln!(
-                    "{RED}replacing existing symlink {}{RESET}",
-                    rel_path.display()
-                );
-                std::fs::remove_file(&dest).with_context(|| {
-                    format!("failed to remove existing symlink {}", dest.display())
+            // create parent directory if needed
+            if let Some(parent) = dest.parent() {
+                sh.create_dir(parent).with_context(|| {
+                    format!("failed to create parent directory {}", parent.display())
                 })?;
-            } else {
-                // refuse to destroy real stuff
-                bail!(
-                    "{} exists and is not a symlink; refusing to remove it",
-                    dest.display()
-                );
             }
-        }
 
-        // create symlink
-        eprintln!("{GREEN}creating symlink for {}{RESET}", rel_path.display());
-        std::os::unix::fs::symlink(&entry, &dest).map_err(|e| {
-            anyhow!(
-                "failed to symlink {} to {}: {e}",
-                entry.display(),
-                dest.display()
-            )
-        })
-    })?;
+            if dest.symlink_metadata().is_ok() {
+                if dest.is_symlink() {
+                    // replace existing symlinks outright
+                    eprintln!(
+                        "{RED}replacing existing symlink {}{RESET}",
+                        rel_path.display()
+                    );
+                    std::fs::remove_file(&dest).with_context(|| {
+                        format!("failed to remove existing symlink {}", dest.display())
+                    })?;
+                } else {
+                    // refuse to destroy real stuff
+                    bail!(
+                        "{} exists and is not a symlink; refusing to remove it",
+                        dest.display()
+                    );
+                }
+            }
+
+            // create symlink
+            eprintln!("{GREEN}creating symlink for {}{RESET}", rel_path.display());
+            std::os::unix::fs::symlink(&entry, &dest).map_err(|e| {
+                anyhow!(
+                    "failed to symlink {} to {}: {e}",
+                    entry.display(),
+                    dest.display()
+                )
+            })
+        })?;
 
     Ok(())
 }
 
 fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
-    fn walk(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    fn walk(dir: &Path, prefix: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
         std::fs::read_dir(dir)
             .map_err(|e| anyhow!("failed to read directory {}: {e}", dir.display()))?
             .try_for_each(|entry| -> Result<()> {
@@ -134,22 +134,23 @@ fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
                 let file_type = entry
                     .file_type()
                     .with_context(|| format!("failed to read file type of {}", path.display()))?;
+                let rel = prefix.join(entry.file_name());
 
                 if file_type.is_symlink() {
                     // `file_type()` uses d_type from readdir(), which
                     // categorises symlinks as symlinks rather than their
                     // target. Follow the symlink to classify the target.
                     if path.is_file() {
-                        files.push(path);
+                        files.push(rel);
                     } else if path.is_dir() {
-                        walk(&path, files)?;
+                        walk(&path, &rel, files)?;
                     } else {
                         bail!("broken symlink in config home: {}", path.display());
                     }
                 } else if file_type.is_file() {
-                    files.push(path);
+                    files.push(rel);
                 } else if file_type.is_dir() {
-                    walk(&path, files)?;
+                    walk(&path, &rel, files)?;
                 } else {
                     // ignore other types
                 }
@@ -159,6 +160,7 @@ fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
     }
 
     let mut files = Vec::new();
-    walk(path, &mut files)?;
+    // yield paths relative to the root, so callers never need strip_prefix
+    walk(path, Path::new(""), &mut files)?;
     Ok(files)
 }
