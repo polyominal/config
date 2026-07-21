@@ -15,6 +15,10 @@ concise description of them to SESSION.md** to defer solving such
 incidental tasks until later. You do not need to fix them all straight
 away unless they block your progress; writing them down is often
 sufficient. **Do not write your accomplishments into this file.**
+SESSION.md is an ephemeral, session-scoped scratchpad: do not check it
+into git, and promote any item that turns out to be durable into a
+proper home (a TODO comment, an issue) rather than letting it
+accumulate here.
 
 ## Rust guidelines
 
