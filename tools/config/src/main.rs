@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use xshell::{Shell, cmd};
 
 const RED: &str = "\x1b[31m";
@@ -29,7 +29,7 @@ mod flags {
 }
 
 fn main() -> Result<()> {
-    let flags = flags::Config::from_env()?;
+    let flags = flags::Config::from_env_or_exit();
     let sh = Shell::new()?;
 
     match flags.subcommand {
@@ -38,14 +38,14 @@ fn main() -> Result<()> {
             let config_dir = get_config_dir(&sh)?;
             cmd!(sh, "{editor} {config_dir}")
                 .run()
-                .with_context(|| format!("failed to open editor `{editor}`"))?;
+                .with_context(|| format!("open editor `{editor}`"))?;
         }
         flags::ConfigCmd::Bundle(bundle) => {
             let brewfile = get_config_dir(&sh)?.join("Brewfile");
             let cleanup_flag = bundle.cleanup.then_some("--cleanup");
             cmd!(sh, "brew bundle --file={brewfile} {cleanup_flag...}")
                 .run()
-                .context("failed to run `brew bundle`")?;
+                .context("run `brew bundle`")?;
         }
         flags::ConfigCmd::Setup(_) => symlink(&sh)?,
     }
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
 fn get_home_dir(sh: &Shell) -> Result<PathBuf> {
     sh.var("HOME")
         .map(PathBuf::from)
-        .map_err(|e| anyhow!("failed to get HOME directory from env: {e}"))
+        .context("get HOME environment variable")
 }
 
 fn get_config_dir(sh: &Shell) -> Result<PathBuf> {
@@ -70,7 +70,7 @@ fn get_config_dir(sh: &Shell) -> Result<PathBuf> {
 fn symlink(sh: &Shell) -> Result<()> {
     let home = get_home_dir(sh)?;
     let config_home = get_config_dir(sh)?.join("home");
-    if !config_home.exists() {
+    if !sh.path_exists(&config_home) {
         bail!(
             "config home directory not found at {}",
             config_home.display()
@@ -85,9 +85,8 @@ fn symlink(sh: &Shell) -> Result<()> {
 
             // create parent directory if needed
             if let Some(parent) = dest.parent() {
-                sh.create_dir(parent).with_context(|| {
-                    format!("failed to create parent directory {}", parent.display())
-                })?;
+                sh.create_dir(parent)
+                    .with_context(|| format!("create parent directory {}", parent.display()))?;
             }
 
             if dest.symlink_metadata().is_ok() {
@@ -97,9 +96,8 @@ fn symlink(sh: &Shell) -> Result<()> {
                         "{RED}replacing existing symlink {}{RESET}",
                         rel_path.display()
                     );
-                    std::fs::remove_file(&dest).with_context(|| {
-                        format!("failed to remove existing symlink {}", dest.display())
-                    })?;
+                    sh.remove_path(&dest)
+                        .with_context(|| format!("remove existing symlink {}", dest.display()))?;
                 } else {
                     // refuse to destroy real stuff
                     bail!(
@@ -111,13 +109,9 @@ fn symlink(sh: &Shell) -> Result<()> {
 
             // create symlink
             eprintln!("{GREEN}creating symlink for {}{RESET}", rel_path.display());
-            std::os::unix::fs::symlink(&entry, &dest).map_err(|e| {
-                anyhow!(
-                    "failed to symlink {} to {}: {e}",
-                    entry.display(),
-                    dest.display()
-                )
-            })
+            // no xshell helper exists for symlinks, so use std
+            std::os::unix::fs::symlink(&entry, &dest)
+                .with_context(|| format!("symlink {} to {}", entry.display(), dest.display()))
         })?;
 
     Ok(())
@@ -125,15 +119,15 @@ fn symlink(sh: &Shell) -> Result<()> {
 
 fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
     fn walk(dir: &Path, prefix: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+        // std::fs rather than sh.read_dir, since we need each entry's file_type
         std::fs::read_dir(dir)
-            .map_err(|e| anyhow!("failed to read directory {}: {e}", dir.display()))?
+            .with_context(|| format!("read directory {}", dir.display()))?
             .try_for_each(|entry| -> Result<()> {
-                let entry =
-                    entry.with_context(|| format!("failed to read entry in {}", dir.display()))?;
+                let entry = entry.with_context(|| format!("read entry in {}", dir.display()))?;
                 let path = entry.path();
                 let file_type = entry
                     .file_type()
-                    .with_context(|| format!("failed to read file type of {}", path.display()))?;
+                    .with_context(|| format!("read file type of {}", path.display()))?;
                 let rel = prefix.join(entry.file_name());
 
                 if file_type.is_symlink() {
