@@ -19,7 +19,7 @@ letting them accumulate.
 
 - When adding dependencies to Rust projects, use `cargo add`.
 - After editing source files, run `cargo fmt --all --check` and
-  `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+  `cargo clippy --workspace --all-targets --all-features -- --deny warnings`,
   fixing any issues with `cargo`; `--workspace` lints member crates beyond the root
   (for `cargo fmt`, `--all` is the equivalent).
 - In code that uses `eyre` or `anyhow` `Result`s, consistently use
@@ -78,7 +78,7 @@ When the working tree has uncommitted changes and you are asked to do
 unrelated work, do not stash, commit, or switch branches in the user's
 checkout — create a worktree and work there:
 
-    git worktree add ../<repo>-<slug> -b <scope>/<slug>
+    git worktree add -b <scope>/<slug> ../<repo>-<slug>
 
 For read-only checks on another ref, skip the branch and detach instead:
 `git worktree add --detach ../<repo>-<slug> <ref>`.
