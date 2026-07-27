@@ -1,3 +1,5 @@
+# Agent guidelines
+
 ## General best practices
 
 - Lint shell scripts you write or modify with `shellcheck`.
