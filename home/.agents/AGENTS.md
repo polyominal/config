@@ -85,26 +85,14 @@ is optional; when the change is self-contained, use only the subject
 When you have a full line of code or more than one line of code,
 put them in indented code blocks.
 
-## Documentation preferences
-
-### Documentation examples
-
-- Use realistic names for types and variables.
-
 ## Code style preferences
 
-Document when you have intentionally omitted code that the reader might
-otherwise expect to be present.
+### Documentation
 
-Add TODO comments for features or nuances that were deemed not important
-to add, support, or implement right away.
-
-### Literate Programming
-
-Explain **why**, not what. Document design decisions and business logic
-rather than describing code that's already obvious. Structure code as a
-top-down narrative with clear sections, and place explanatory comments
-immediately before the relevant block.
+Write comments literately: explain **why**, not what. Document design
+decisions and business logic rather than describing code that's already
+obvious. Structure code as a top-down narrative with clear sections, and
+place explanatory comments immediately before the relevant block.
 
 Prefer well-documented inline code over excessive function decomposition
 when logic is sequential and context-dependent. Functions should serve
@@ -114,9 +102,16 @@ inline with good documentation.
 
 Use for: complex algorithms, business logic, integration points between
 systems, or code where the "why" is not immediately obvious from the "what".
-
 Skip for: simple utilities, trivial getters/setters, syntactic sugar over
 well-known patterns.
+
+Document when you have intentionally omitted code that the reader might
+otherwise expect to be present.
+
+Add TODO comments for features or nuances that were deemed not important
+to add, support, or implement right away.
+
+In documentation examples, use realistic names for types and variables.
 
 ## Common failure modes when helping
 
