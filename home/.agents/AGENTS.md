@@ -72,6 +72,21 @@ When you refer to types or very short code snippets, place them in
 backticks. When you have one or more full lines of code, put them in
 indented code blocks.
 
+### Git worktrees for concurrent work
+
+When the working tree has uncommitted changes and you are asked to do
+unrelated work, do not stash, commit, or switch branches in the user's
+checkout — create a worktree and work there:
+
+    git worktree add ../<repo>-<slug> -b <scope>/<slug>
+
+For read-only checks on another ref, skip the branch and detach instead:
+`git worktree add --detach ../<repo>-<slug> <ref>`.
+
+The new worktree shares the repository's history but not untracked or
+ignored files. Once the work merges, remove the worktree with
+`git worktree remove` (it refuses a dirty tree).
+
 ## Code style preferences
 
 ### Documentation
