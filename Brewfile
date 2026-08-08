@@ -2,7 +2,6 @@
 brew "btop"
 brew "eza"
 brew "fish"
-brew "git"
 brew "neovim"
 brew "ripgrep"
 brew "uv"
