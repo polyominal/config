@@ -2,23 +2,31 @@
 
 ## Working habits
 
-- Use project-local `tmp/` for intermediate files and comparison artifacts,
-  but preserve tool-managed cache locations unless explicitly requested
-  otherwise.
+- Understand invariants before editing; assert them where appropriate.
+- Test boundaries, invalid inputs, and failure paths. Run relevant project
+  checks, review the diff, and report results and skipped checks.
+- Prefer existing project tooling and workflows.
 - Prefer `uv` for Python operations.
-- Record unrelated, non-blocking problems in `tmp/ISSUES.md` instead of
-  fixing them. Record problems only, never accomplishments. Keep this
-  scratchpad session-scoped and uncommitted; move durable items to TODO
-  comments or issues.
+- Use ignored project-local `tmp/` for scratch work; preserve tool-managed
+  cache locations unless instructed otherwise.
+- Record unrelated, non-blocking problems, not accomplishments, in
+  `tmp/ISSUES.md` instead of fixing them. Keep notes uncommitted;
+  promote to TODOs or issues only when authorized.
 - If a requested approach seems misguided, clarify the underlying goal
   and suggest a better route.
 
 ## Git workflow
 
+- Inspect existing changes before editing; preserve them even when related.
+  Ask when overlapping edits cannot be safely reconciled.
 - Use `git mv` to move tracked files.
-- When the checkout has uncommitted changes and the requested work is
-  unrelated, use a separate worktree. Do not stash, commit existing
-  changes, or switch branches in the user's checkout.
-- Use a detached worktree for read-only checks on another ref.
-- After the work merges, remove its worktree with `git worktree remove`.
-- End AI-assisted commit bodies with `AI-Assisted: <model name(s)>`.
+- For edits unrelated to uncommitted work, use a separate worktree.
+  Do not stash or commit existing changes, or switch the user's branch.
+- Prefer `git show`/`git diff` for inspecting other refs; use a detached
+  worktree when checks require a checkout.
+- Remove only your temporary worktrees with `git worktree remove` after
+  inspection or merge, preserving needed work and artifacts.
+- Write self-contained commit messages explaining what and why; follow
+  repository subject conventions.
+- End AI-assisted commit bodies with `AI-Assisted: <model ID(s)>`
+  (kebab-case, or `unknown` if unavailable).
