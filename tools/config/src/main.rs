@@ -42,7 +42,7 @@ fn main() -> Result<()> {
         }
         flags::ConfigCmd::Bundle(bundle) => {
             let brewfile = get_config_dir(&sh)?.join("Brewfile");
-            let cleanup_flag = bundle.cleanup.then_some("--cleanup");
+            let cleanup_flag = bundle.cleanup.then_some("--force-cleanup");
             cmd!(sh, "brew bundle --file={brewfile} {cleanup_flag...}")
                 .run()
                 .context("run `brew bundle`")?;
@@ -89,6 +89,11 @@ fn symlink(sh: &Shell) -> Result<()> {
                     .with_context(|| format!("create parent directory {}", parent.display()))?;
             }
 
+            // already linked, possibly through a symlinked parent directory
+            if dest.canonicalize().ok() == Some(entry.canonicalize()?) {
+                return Ok(());
+            }
+
             if dest.symlink_metadata().is_ok() {
                 if dest.is_symlink() {
                     // replace existing symlinks outright
@@ -96,7 +101,7 @@ fn symlink(sh: &Shell) -> Result<()> {
                         "{RED}replacing existing symlink {}{RESET}",
                         rel_path.display()
                     );
-                    sh.remove_path(&dest)
+                    std::fs::remove_file(&dest)
                         .with_context(|| format!("remove existing symlink {}", dest.display()))?;
                 } else {
                     // refuse to destroy real stuff
