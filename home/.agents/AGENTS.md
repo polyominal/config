@@ -2,7 +2,9 @@
 
 ## Working habits
 
-- Use project-local `tmp/` for intermediate files and comparison artifacts.
+- Use project-local `tmp/` for intermediate files and comparison artifacts,
+  but preserve tool-managed cache locations unless explicitly requested
+  otherwise.
 - Prefer `uv` for Python operations.
 - Record unrelated, non-blocking problems in `tmp/ISSUES.md` instead of
   fixing them. Record problems only, never accomplishments. Keep this
