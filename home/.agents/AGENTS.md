@@ -2,10 +2,6 @@
 
 ## Working habits
 
-- Understand invariants before editing; assert them where appropriate.
-- Verify changes proportionately, covering relevant boundaries and failure
-  paths. Run relevant checks, review the diff, and report results and skipped
-  checks.
 - Prefer existing project tooling and workflows.
 - Prefer `uv` for ad hoc Python work.
 - Use ignored project-local `tmp/` for scratch work; preserve tool-managed
