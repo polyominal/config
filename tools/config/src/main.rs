@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -16,7 +17,7 @@ mod flags {
                 optional --cleanup
             }
 
-            /// Create symlinks from config/home to the home directory.
+            /// Link home files and copy missing seed files from config and config-private.
             cmd setup {}
 
             /// Open the config directory in the editor.
@@ -47,7 +48,7 @@ fn main() -> Result<()> {
                 .run()
                 .context("run `brew bundle`")?;
         }
-        flags::ConfigCmd::Setup(_) => symlink(&sh)?,
+        flags::ConfigCmd::Setup(_) => setup(&sh, &get_home_dir(&sh)?)?,
     }
 
     Ok(())
@@ -67,26 +68,92 @@ fn get_config_dir(sh: &Shell) -> Result<PathBuf> {
     Ok(config_dir)
 }
 
-fn symlink(sh: &Shell) -> Result<()> {
-    let home = get_home_dir(sh)?;
-    let config_home = get_config_dir(sh)?.join("home");
-    if !sh.path_exists(&config_home) {
-        bail!(
-            "config home directory not found at {}",
-            config_home.display()
-        );
+fn setup(sh: &Shell, home: &Path) -> Result<()> {
+    let config_home = home.join("config/home");
+    let private = home.join("config-private");
+    let mut sources = vec![(config_home, false)];
+    if entry_exists(&private)? {
+        if !private.is_dir() {
+            bail!("private config is not a directory: {}", private.display());
+        }
+        let private_home = private.join("home");
+        if entry_exists(&private_home)? {
+            sources.push((private_home, false));
+        }
+    }
+    for seed in [home.join("config/seed"), private.join("seed")] {
+        if entry_exists(&seed)? {
+            sources.push((seed, true));
+        }
     }
 
-    walkdir(&config_home)?
+    // validate source trees and destinations before creating any files
+    let mut files = BTreeMap::new();
+    for (source, seed) in sources {
+        for relative in walkdir(&source)? {
+            let entry = source.join(&relative);
+            if let Some((previous, _)) = files.insert(relative.clone(), (entry.clone(), seed)) {
+                bail!(
+                    "conflicting sources for {}: {} and {}",
+                    relative.display(),
+                    previous.display(),
+                    entry.display()
+                );
+            }
+        }
+    }
+    for (relative, (entry, seed)) in &files {
+        for ancestor in relative
+            .ancestors()
+            .skip(1)
+            .filter(|p| !p.as_os_str().is_empty())
+        {
+            if files.contains_key(ancestor) {
+                bail!(
+                    "conflicting file and directory destinations: {} and {}",
+                    ancestor.display(),
+                    relative.display()
+                );
+            }
+            let parent = home.join(ancestor);
+            if entry_exists(&parent)? && !parent.is_dir() {
+                bail!(
+                    "destination parent is not a directory: {}",
+                    parent.display()
+                );
+            }
+        }
+        let dest = home.join(relative);
+        if !seed
+            && dest.canonicalize().ok() != Some(entry.canonicalize()?)
+            && entry_exists(&dest)?
+            && !dest.is_symlink()
+        {
+            bail!(
+                "{} exists and is not a symlink; refusing to remove it",
+                dest.display()
+            );
+        }
+    }
+
+    files
         .into_iter()
-        .try_for_each(|rel_path| {
-            let entry = config_home.join(&rel_path);
+        .try_for_each(|(rel_path, (entry, seed))| {
             let dest = home.join(&rel_path);
+
+            // existing seed destinations belong to the machine
+            if seed && entry_exists(&dest)? {
+                return Ok(());
+            }
 
             // create parent directory if needed
             if let Some(parent) = dest.parent() {
                 sh.create_dir(parent)
                     .with_context(|| format!("create parent directory {}", parent.display()))?;
+            }
+
+            if seed {
+                return seed_file(&entry, &dest);
             }
 
             // already linked, possibly through a symlinked parent directory
@@ -122,8 +189,42 @@ fn symlink(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
+fn seed_file(source: &Path, dest: &Path) -> Result<()> {
+    let mut input =
+        std::fs::File::open(source).with_context(|| format!("open seed {}", source.display()))?;
+    // create_new also protects files created after the existence check
+    let mut output = match std::fs::File::create_new(dest) {
+        Ok(file) => file,
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => return Ok(()),
+        Err(err) => return Err(err).with_context(|| format!("create seed {}", dest.display())),
+    };
+    let result = (|| -> std::io::Result<()> {
+        std::io::copy(&mut input, &mut output)?;
+        output.set_permissions(input.metadata()?.permissions())
+    })();
+    if let Err(err) = result {
+        // remove partial copies so the next setup can retry
+        std::fs::remove_file(dest)
+            .with_context(|| format!("remove partial seed {}", dest.display()))?;
+        return Err(err).with_context(|| format!("copy seed to {}", dest.display()));
+    }
+    eprintln!("{GREEN}creating seed for {}{RESET}", dest.display());
+    Ok(())
+}
+
+fn entry_exists(path: &Path) -> Result<bool> {
+    match path.symlink_metadata() {
+        Ok(_) => Ok(true),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(err).with_context(|| format!("inspect {}", path.display())),
+    }
+}
+
 fn walkdir(path: &Path) -> Result<Vec<PathBuf>> {
     fn walk(dir: &Path, prefix: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+        if !dir.is_dir() {
+            bail!("config source is not a directory: {}", dir.display());
+        }
         // std::fs rather than sh.read_dir, since we need each entry's file_type
         std::fs::read_dir(dir)
             .with_context(|| format!("read directory {}", dir.display()))?
