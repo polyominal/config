@@ -8,8 +8,12 @@
   cache locations.
 - Record unrelated, non-blocking problems in `tmp/ISSUES.md` without fixing
   them. Keep notes uncommitted; promote to TODOs or issues only when authorized.
-- If a requested approach seems misguided, clarify the underlying goal
-  and suggest a better route.
+- Clarify material uncertainties about the goal or design before substantial
+  work. If an approach seems misguided, explain why and suggest a better route.
+- Match verification effort to risk and impact. Prefer testing observable
+  behavior through stable interfaces; avoid exposing internals solely for tests.
+- Call out material changes to interfaces, architectural boundaries, or
+  performance for review.
 
 ## Git workflow
 
@@ -22,4 +26,4 @@
 - Write self-contained commit messages explaining what and why; follow
   repository subject conventions.
 - End AI-assisted commit bodies with `AI-assisted: <model ID(s)>`
-  (kebab-case, e.g. `gpt-6-astra`; `unknown-model` if unavailable).
+  (kebab-case). If not readily known, ask the user before committing.
