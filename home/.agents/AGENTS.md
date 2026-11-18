@@ -6,8 +6,6 @@
 - Prefer `uv` for ad hoc Python work.
 - Use ignored project-local `tmp/` for scratch work; preserve tool-managed
   cache locations.
-- Record unrelated, non-blocking problems in `tmp/ISSUES.md` without fixing
-  them. Keep notes uncommitted; promote to TODOs or issues only when authorized.
 - Clarify material uncertainties about the goal or design before substantial
   work. If an approach seems misguided, explain why and suggest a better route.
 - Match verification effort to risk and impact. Prefer testing observable
